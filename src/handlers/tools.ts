@@ -1,4 +1,5 @@
-import { McpToolDefinition } from "@modelcontextprotocol/sdk";
+import { Tool, CallToolRequestSchema, CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import { McpError, ErrorCode } from "@modelcontextprotocol/sdk/types.js";
 import RecordingEngine, { RecordingStatus } from "../recording/engine";
 
 // Singleton recording engine instance
@@ -13,50 +14,26 @@ function getRecordingEngine(): RecordingEngine {
 }
 
 /**
- * Tool handler for the 'record' command
- * Starts recording audio from the system and microphone
+ * Tool definitions for MCP server
  */
-export const recordTool: McpToolDefinition = {
-  name: "record", // Use product spec name as required
+export const recordTool: Tool = {
+  name: "record",
   description: "Start recording audio from the system and microphone",
   inputSchema: {
     type: "object",
     properties: {
       application: {
         type: "string",
-        description:
-          "Optional target application (Zoom, Google Meet, Slack, Teams)",
+        description: "Optional target application (Zoom, Google Meet, Slack, Teams)",
         enum: ["Zoom", "Google Meet", "Slack", "Teams"],
       },
     },
-  },
-  async handler({ application }) {
-    try {
-      const engine = getRecordingEngine();
-      const recordingState = await engine.startRecording(application);
-
-      return {
-        status: recordingState.status,
-        meta: {
-          application: recordingState.targetApplication,
-        },
-      };
-    } catch (error) {
-      console.error("Error handling record command:", error);
-      return {
-        status: RecordingStatus.ERROR,
-        error: error instanceof Error ? error.message : String(error),
-      };
-    }
+    additionalProperties: false,
   },
 };
 
-/**
- * Tool handler for the 'stop' command
- * Stops recording and saves WAV file
- */
-export const stopTool: McpToolDefinition = {
-  name: "stop", // Use product spec name as required
+export const stopTool: Tool = {
+  name: "stop",
   description: "Stop recording and save WAV file",
   inputSchema: {
     type: "object",
@@ -66,59 +43,104 @@ export const stopTool: McpToolDefinition = {
         description: "Optional output directory for the WAV file",
       },
     },
-  },
-  async handler({ outputDirectory }) {
-    try {
-      const engine = getRecordingEngine();
-      const result = await engine.stopRecording(outputDirectory);
-
-      return {
-        path: result.path,
-        meta: {
-          elapsedTimeSeconds: result.meta.elapsedTimeSeconds,
-          application: result.meta.application,
-        },
-      };
-    } catch (error) {
-      console.error("Error handling stop command:", error);
-      return {
-        error: error instanceof Error ? error.message : String(error),
-      };
-    }
+    additionalProperties: false,
   },
 };
 
-/**
- * Tool handler for the 'status' command
- * Gets current recording state
- */
-export const statusTool: McpToolDefinition = {
-  name: "status", // Use product spec name as required
+export const statusTool: Tool = {
+  name: "status",
   description: "Get current recording state",
   inputSchema: {
     type: "object",
     properties: {},
-  },
-  async handler() {
-    try {
-      const engine = getRecordingEngine();
-      const state = engine.getStatus();
-
-      return {
-        status: state.status,
-        meta: {
-          elapsedTimeSeconds: state.elapsedTimeSeconds || 0,
-          application: state.targetApplication || null,
-        },
-      };
-    } catch (error) {
-      console.error("Error handling status command:", error);
-      return {
-        status: RecordingStatus.ERROR,
-        error: error instanceof Error ? error.message : String(error),
-      };
-    }
+    additionalProperties: false,
   },
 };
 
-export const tools = [recordTool, stopTool, statusTool];
+// Tool definitions array
+export const tools: Tool[] = [recordTool, stopTool, statusTool];
+
+/**
+ * Tool handler functions for MCP server
+ */
+export async function handleToolCall(name: string, arguments_: unknown): Promise<CallToolResult> {
+  try {
+    switch (name) {
+      case "record":
+        return await handleRecordTool(arguments_ as { application?: string });
+      case "stop":
+        return await handleStopTool(arguments_ as { outputDirectory?: string });
+      case "status":
+        return await handleStatusTool();
+      default:
+        throw new McpError(ErrorCode.MethodNotFound, `Unknown tool: ${name}`);
+    }
+  } catch (error) {
+    if (error instanceof McpError) {
+      throw error;
+    }
+    throw new McpError(
+      ErrorCode.InternalError,
+      `Tool execution failed: ${error instanceof Error ? error.message : String(error)}`
+    );
+  }
+}
+
+async function handleRecordTool(args: { application?: string }): Promise<CallToolResult> {
+  const engine = getRecordingEngine();
+  const recordingState = await engine.startRecording(args.application);
+
+  return {
+    content: [
+      {
+        type: "text",
+        text: JSON.stringify({
+          status: recordingState.status,
+          meta: {
+            application: recordingState.targetApplication,
+          },
+        }, null, 2),
+      },
+    ],
+  };
+}
+
+async function handleStopTool(args: { outputDirectory?: string }): Promise<CallToolResult> {
+  const engine = getRecordingEngine();
+  const result = await engine.stopRecording(args.outputDirectory);
+
+  return {
+    content: [
+      {
+        type: "text",
+        text: JSON.stringify({
+          path: result.path,
+          meta: {
+            elapsedTimeSeconds: result.meta.elapsedTimeSeconds,
+            application: result.meta.application,
+          },
+        }, null, 2),
+      },
+    ],
+  };
+}
+
+async function handleStatusTool(): Promise<CallToolResult> {
+  const engine = getRecordingEngine();
+  const state = engine.getStatus();
+
+  return {
+    content: [
+      {
+        type: "text",
+        text: JSON.stringify({
+          status: state.status,
+          meta: {
+            elapsedTimeSeconds: state.elapsedTimeSeconds || 0,
+            application: state.targetApplication || null,
+          },
+        }, null, 2),
+      },
+    ],
+  };
+}

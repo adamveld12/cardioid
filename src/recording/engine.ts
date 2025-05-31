@@ -71,7 +71,7 @@ export class RecordingEngine {
     this.setupIpcListeners();
 
     // Prevent app from closing when all windows are closed
-    app.on("window-all-closed", (e) => {
+    app.on("window-all-closed", (e: Electron.Event) => {
       e.preventDefault();
     });
   }
@@ -94,39 +94,80 @@ export class RecordingEngine {
       const sources = await desktopCapturer.getSources({
         types: ["window", "screen"],
         thumbnailSize: { width: 0, height: 0 },
+        fetchWindowIcons: false, // Optimize performance
       });
 
       let sourceId: string;
+      let sourceDescription: string;
 
       if (targetApplication) {
-        // Find the specified application window
-        const targetSource = sources.find((source) =>
-          source.name.toLowerCase().includes(targetApplication.toLowerCase())
+        // Enhanced application targeting with better matching logic
+        const appNameLower = targetApplication.toLowerCase();
+
+        // Try to find exact match first
+        let targetSource = sources.find((source) =>
+          source.name.toLowerCase() === appNameLower
         );
 
+        // If no exact match, try partial match
         if (!targetSource) {
+          targetSource = sources.find((source) =>
+            source.name.toLowerCase().includes(appNameLower)
+          );
+        }
+
+        // Try alternative common names for popular apps
+        if (!targetSource) {
+          const alternativeNames: { [key: string]: string[] } = {
+            'zoom': ['zoom meeting', 'zoom.us', 'zoom'],
+            'google meet': ['meet.google.com', 'google meet', 'meet'],
+            'slack': ['slack call', 'slack huddle', 'slack'],
+            'teams': ['microsoft teams', 'teams meeting', 'teams'],
+          };
+
+          const alternatives = alternativeNames[appNameLower] || [];
+          for (const altName of alternatives) {
+            targetSource = sources.find((source) =>
+              source.name.toLowerCase().includes(altName)
+            );
+            if (targetSource) break;
+          }
+        }
+
+        if (!targetSource) {
+          // List available sources for debugging
+          const availableSources = sources.map(s => s.name).join(', ');
           throw new Error(
-            `Target application "${targetApplication}" not found`
+            `Target application "${targetApplication}" not found. Available sources: ${availableSources}`
           );
         }
 
         sourceId = targetSource.id;
+        sourceDescription = targetSource.name;
       } else {
-        // If no target specified, use the first source (usually the entire screen)
-        if (sources.length === 0) {
+        // If no target specified, prefer screen capture over individual windows
+        const screenSources = sources.filter(source => source.id.startsWith('screen:'));
+        const preferredSource = screenSources.length > 0 ? screenSources[0] : sources[0];
+
+        if (!preferredSource) {
           throw new Error("No available audio sources found");
         }
-        sourceId = sources[0].id;
+
+        sourceId = preferredSource.id;
+        sourceDescription = preferredSource.name;
       }
 
       // Send command to renderer process to start recording
-      this.window?.webContents.send("start-recording", { sourceId });
+      this.window?.webContents.send("start-recording", {
+        sourceId,
+        sourceDescription
+      });
 
       // Update recording state
       this.recordingState = {
         status: RecordingStatus.RECORDING,
         startTime: Date.now(),
-        targetApplication: targetApplication || "Screen",
+        targetApplication: targetApplication || sourceDescription || "Screen",
         elapsedTimeSeconds: 0,
       };
 
@@ -190,16 +231,24 @@ export class RecordingEngine {
       const fileName = `recording-${timestamp}.wav`;
       const filePath = path.join(outputDir, fileName);
 
-      // Send stop command to renderer process
+      // Send stop command to renderer process with timeout
       const savePath = await new Promise<string>((resolve, reject) => {
+        // Set up timeout for saving operation
+        const timeout = setTimeout(() => {
+          reject(new Error("Recording save operation timed out"));
+        }, 30000); // 30 second timeout
+
         // Set up one-time listener for save result
-        ipcMain.once("recording-saved", (_, result) => {
+        const saveHandler = (_: any, result: any) => {
+          clearTimeout(timeout);
           if (result.error) {
             reject(new Error(result.error));
           } else {
             resolve(result.path);
           }
-        });
+        };
+
+        ipcMain.once("recording-saved", saveHandler);
 
         // Tell renderer to stop recording and save file
         this.window?.webContents.send("stop-recording", { filePath });
@@ -257,8 +306,8 @@ export class RecordingEngine {
         this.window = null;
       }
 
-      // Quit app if it's running
-      if (app.isReady()) {
+      // Quit app if it's running and available
+      if (app && app.isReady()) {
         app.quit();
       }
     } catch (error) {
@@ -270,6 +319,10 @@ export class RecordingEngine {
    * Set up IPC listeners for communication with renderer process
    */
   private setupIpcListeners(): void {
+    // Remove any existing listeners to prevent duplicates
+    ipcMain.removeAllListeners("recording-error");
+    ipcMain.removeAllListeners("recording-started");
+
     // Listen for recording errors from renderer
     ipcMain.on("recording-error", (_, error) => {
       console.error("Recording error from renderer:", error);
@@ -283,6 +336,11 @@ export class RecordingEngine {
         clearInterval(this.recordingTimer);
         this.recordingTimer = null;
       }
+    });
+
+    // Listen for successful recording start confirmation
+    ipcMain.on("recording-started", () => {
+      console.log("Recording successfully started in renderer process");
     });
   }
 }

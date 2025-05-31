@@ -1,8 +1,6 @@
 #!/usr/bin/env node
 
-import { app } from "electron";
 import CardioIdMcpServer from "./mcp/server";
-import { tools } from "./handlers/tools";
 import RecordingEngine from "./recording/engine";
 import { EnvironmentConfig } from "./config/environment";
 
@@ -19,8 +17,8 @@ async function main() {
     // Create and initialize recording engine
     recordingEngine = new RecordingEngine();
 
-    // Create and start MCP server with tools
-    const mcpServer = new CardioIdMcpServer(tools);
+    // Create and start MCP server
+    const mcpServer = new CardioIdMcpServer();
     await mcpServer.start();
 
     // Handle process termination
@@ -35,16 +33,9 @@ async function main() {
       `Output directory: ${EnvironmentConfig.getOutputDirectory()}`
     );
 
-    // Keep process alive
-    app.whenReady().then(() => {
-      // Set app name
-      app.setName("Cardioid MCP Server");
-
-      // Prevent app from closing when all windows are closed
-      app.on("window-all-closed", (e: Event) => {
-        e.preventDefault();
-      });
-    });
+    // Keep process alive by waiting indefinitely
+    // The MCP server will handle communication via STDIO
+    await new Promise(() => {}); // Keep process running
   } catch (error) {
     console.error("Failed to start Cardioid MCP Server:", error);
     process.exit(1);

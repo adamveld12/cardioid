@@ -1,25 +1,53 @@
+import { Server } from "@modelcontextprotocol/sdk/server/index.js";
+import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import {
-  McpServer,
-  McpStreamTransport,
-  McpTool,
-} from "@modelcontextprotocol/sdk";
+  CallToolRequestSchema,
+  ListToolsRequestSchema,
+  Tool,
+} from "@modelcontextprotocol/sdk/types.js";
 import { EnvironmentConfig } from "../config/environment";
+import { tools, handleToolCall } from "../handlers/tools";
 
 /**
  * MCP Server implementation for the Cardioid audio recording application
  */
 export class CardioIdMcpServer {
-  private server: McpServer;
+  private server: Server;
+  private transport: StdioServerTransport;
   private isRunning = false;
 
-  constructor(private tools: McpTool[]) {
-    // Create a new MCP server using STDIO transport
-    this.server = new McpServer({
-      transport: new McpStreamTransport({
-        input: process.stdin,
-        output: process.stdout,
-      }),
-      tools: this.tools,
+  constructor() {
+    // Create STDIO transport
+    this.transport = new StdioServerTransport();
+
+    // Create MCP server
+    this.server = new Server(
+      {
+        name: "cardioid",
+        version: "0.1.0",
+      },
+      {
+        capabilities: {
+          tools: {},
+        },
+      }
+    );
+
+    this.setupHandlers();
+  }
+
+  private setupHandlers(): void {
+    // Handle tool listing
+    this.server.setRequestHandler(ListToolsRequestSchema, async () => {
+      return {
+        tools: tools,
+      };
+    });
+
+    // Handle tool calls
+    this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
+      const { name, arguments: args } = request.params;
+      return await handleToolCall(name, args);
     });
   }
 
@@ -35,13 +63,8 @@ export class CardioIdMcpServer {
       // Validate environment configuration
       EnvironmentConfig.validateEnvironment();
 
-      // Listen for server errors
-      this.server.on("error", (err) => {
-        console.error("MCP Server error:", err);
-      });
-
-      // Start the server
-      await this.server.start();
+      // Connect server to transport
+      await this.server.connect(this.transport);
       this.isRunning = true;
 
       if (EnvironmentConfig.isDevelopment()) {
@@ -62,7 +85,7 @@ export class CardioIdMcpServer {
     }
 
     try {
-      await this.server.stop();
+      await this.server.close();
       this.isRunning = false;
 
       if (EnvironmentConfig.isDevelopment()) {
