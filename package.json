@@ -20,8 +20,7 @@
     "typescript": "^5.0.0",
     "ts-node": "^10.0.0",
     "nodemon": "^2.0.0",
-    "@types/node": "^18.0.0",
-    "@types/electron": "^24.0.0"
+    "@types/node": "^18.0.0"
   },
   "engines": {
     "node": ">=14"

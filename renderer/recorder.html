@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Cardioid Audio Recorder</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+      background-color: #f5f5f5;
+      color: #333;
+      margin: 0;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    .status-container {
+      background-color: white;
+      border-radius: 8px;
+      padding: 20px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      width: 80%;
+      max-width: 500px;
+      text-align: center;
+    }
+
+    .recording-indicator {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background-color: #ff4136;
+      margin-right: 8px;
+      animation: pulse 1.5s infinite;
+    }
+
+    @keyframes pulse {
+      0% { opacity: 1; }
+      50% { opacity: 0.4; }
+      100% { opacity: 1; }
+    }
+
+    .recording-time {
+      font-size: 24px;
+      font-weight: bold;
+      margin: 15px 0;
+    }
+
+    .status-text {
+      font-size: 16px;
+      color: #555;
+    }
+  </style>
+</head>
+<body>
+  <div class="status-container">
+    <div id="status-display">
+      <p class="status-text">Waiting to start recording...</p>
+    </div>
+    <div id="recording-display" style="display: none;">
+      <p class="status-text">
+        <span class="recording-indicator"></span>
+        Recording in progress
+      </p>
+      <p class="recording-time" id="recording-time">00:00:00</p>
+      <p class="status-text" id="source-info">Source: Not selected</p>
+    </div>
+  </div>
+
+  <script>
+    const { ipcRenderer } = require('electron');
+
+    // DOM elements
+    const statusDisplay = document.getElementById('status-display');
+    const recordingDisplay = document.getElementById('recording-display');
+    const recordingTime = document.getElementById('recording-time');
+    const sourceInfo = document.getElementById('source-info');
+
+    // Recording variables
+    let mediaRecorder = null;
+    let audioChunks = [];
+    let startTime = null;
+    let timerInterval = null;
+    let stream = null;
+
+    // Format time as HH:MM:SS
+    function formatTime(seconds) {
+      const h = Math.floor(seconds / 3600);
+      const m = Math.floor((seconds % 3600) / 60);
+      const s = Math.floor(seconds % 60);
+      return [h, m, s].map(v => v.toString().padStart(2, '0')).join(':');
+    }
+
+    // Update the recording timer display
+    function updateTimer() {
+      if (!startTime) return;
+
+      const elapsedSeconds = Math.floor((Date.now() - startTime) / 1000);
+      recordingTime.textContent = formatTime(elapsedSeconds);
+    }
+
+    // Start the recording process
+    async function startRecording(sourceId) {
+      try {
+        // Get the audio stream
+        const constraints = {
+          audio: {
+            mandatory: {
+              chromeMediaSource: 'desktop',
+              chromeMediaSourceId: sourceId
+            }
+          },
+          video: {
+            mandatory: {
+              chromeMediaSource: 'desktop',
+              chromeMediaSourceId: sourceId,
+              minWidth: 1280,
+              maxWidth: 1280,
+              minHeight: 720,
+              maxHeight: 720
+            }
+          }
+        };
+
+        stream = await navigator.mediaDevices.getUserMedia(constraints);
+
+        // Create audio context for processing
+        const audioContext = new AudioContext();
+        const audioSource = audioContext.createMediaStreamSource(stream);
+        const destination = audioContext.createMediaStreamDestination();
+
+        // Connect source to destination
+        audioSource.connect(destination);
+
+        // Create media recorder
+        mediaRecorder = new MediaRecorder(destination.stream);
+        audioChunks = [];
+
+        // Collect audio data
+        mediaRecorder.ondataavailable = (event) => {
+          if (event.data.size > 0) {
+            audioChunks.push(event.data);
+          }
+        };
+
+        // Handle recording errors
+        mediaRecorder.onerror = (error) => {
+          console.error('MediaRecorder error:', error);
+          ipcRenderer.send('recording-error', error.message || 'Unknown recording error');
+          stopRecording();
+        };
+
+        // Start recording
+        mediaRecorder.start(1000);
+        startTime = Date.now();
+
+        // Update UI
+        statusDisplay.style.display = 'none';
+        recordingDisplay.style.display = 'block';
+        sourceInfo.textContent = `Source: ${sourceId.split(':')[0]}`;
+
+        // Start timer
+        timerInterval = setInterval(updateTimer, 1000);
+
+        console.log('Recording started');
+      } catch (error) {
+        console.error('Error starting recording:', error);
+        ipcRenderer.send('recording-error', error.message || 'Failed to start recording');
+      }
+    }
+
+    // Stop recording and save file
+    async function stopRecording(filePath) {
+      if (!mediaRecorder || mediaRecorder.state === 'inactive') {
+        ipcRenderer.send('recording-saved', { error: 'No active recording' });
+        return;
+      }
+
+      try {
+        // Create a promise that resolves when recording stops
+        const stopPromise = new Promise(resolve => {
+          mediaRecorder.onstop = resolve;
+        });
+
+        // Stop the media recorder
+        mediaRecorder.stop();
+        await stopPromise;
+
+        // Stop all tracks in the stream
+        if (stream) {
+          stream.getTracks().forEach(track => track.stop());
+        }
+
+        // Clear timer
+        if (timerInterval) {
+          clearInterval(timerInterval);
+          timerInterval = null;
+        }
+
+        // Create audio blob and save to file
+        const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+
+        // Convert blob to buffer and save file
+        const arrayBuffer = await audioBlob.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
+
+        // Use Node.js fs to write file
+        const fs = require('fs');
+        fs.writeFileSync(filePath, buffer);
+
+        // Reset recording state
+        mediaRecorder = null;
+        audioChunks = [];
+        startTime = null;
+
+        // Update UI
+        statusDisplay.style.display = 'block';
+        recordingDisplay.style.display = 'none';
+
+        // Notify main process that recording was saved
+        ipcRenderer.send('recording-saved', { path: filePath });
+
+        console.log('Recording saved to:', filePath);
+      } catch (error) {
+        console.error('Error stopping recording:', error);
+        ipcRenderer.send('recording-saved', { error: error.message || 'Failed to save recording' });
+      }
+    }
+
+    // IPC event listeners
+    ipcRenderer.on('start-recording', (_, data) => {
+      startRecording(data.sourceId);
+    });
+
+    ipcRenderer.on('stop-recording', (_, data) => {
+      stopRecording(data.filePath);
+    });
+  </script>
+</body>
+</html>
