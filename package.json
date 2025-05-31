@@ -1,0 +1,29 @@
+{
+  "name": "cardioid",
+  "version": "0.1.0",
+  "description": "Cardioid MCP Server - Audio Recording MCP Server",
+  "main": "dist/index.js",
+  "bin": {
+    "cardioid": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "nodemon --exec ts-node src/index.ts",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "electron": "^25.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "ts-node": "^10.0.0",
+    "nodemon": "^2.0.0",
+    "@types/node": "^18.0.0",
+    "@types/electron": "^24.0.0"
+  },
+  "engines": {
+    "node": ">=14"
+  }
+}
