@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { McpServer } from "./server/index.js";
+import { McpServer } from "./server";
 
 /**
  * Main entry point for the Cardioid MCP Server
@@ -11,16 +11,13 @@ async function main() {
 
     // Create and start MCP server
     const mcpServer = new McpServer();
-    await mcpServer.start();
 
     // Handle process termination
     process.on("SIGINT", shutdown);
     process.on("SIGTERM", shutdown);
 
+    await mcpServer.start();
     console.error("Cardioid MCP Server started successfully");
-
-    // Keep process alive - MCP server handles communication via STDIO
-    await new Promise(() => {}); // Keep process running
   } catch (error) {
     console.error("Failed to start Cardioid MCP Server:", error);
     process.exit(1);

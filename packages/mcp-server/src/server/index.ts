@@ -4,7 +4,7 @@ import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
-import { tools, handleToolCall } from "../tools/index.js";
+import { tools, handleToolCall } from "../tools";
 
 /**
  * MCP Server implementation for the Cardioid audio recording application
@@ -31,15 +31,8 @@ export class McpServer {
       }
     );
 
-    this.setupHandlers();
-  }
-
-  private setupHandlers(): void {
-    // Handle tool listing
     this.server.setRequestHandler(ListToolsRequestSchema, async () => {
-      return {
-        tools: tools,
-      };
+      return { tools };
     });
 
     // Handle tool calls
