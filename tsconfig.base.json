@@ -1,0 +1,23 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "commonjs", // Base module system, can be overridden by packages
+    "lib": ["ES2022"],
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "composite": true, // Important for project references
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": false, // As per shrimp-rules.md
+    "forceConsistentCasingInFileNames": true,
+    "moduleResolution": "node16", // As per shrimp-rules.md
+    "resolveJsonModule": true,
+    "isolatedModules": true, // Helps with tree-shaking and faster builds
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true
+  },
+  "exclude": ["node_modules", "dist", "**/*.test.ts"]
+}

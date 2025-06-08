@@ -1,0 +1,12 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "module": "NodeNext", // As per shrimp-rules.md
+    "target": "ES2022", // As per shrimp-rules.md
+    "baseUrl": "."
+  },
+  "include": ["src/**/*"],
+  "references": [{ "path": "../shared" }]
+}

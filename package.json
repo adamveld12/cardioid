@@ -1,0 +1,22 @@
+{
+  "name": "cardioid-monorepo",
+  "private": true,
+  "version": "0.0.1",
+  "description": "Cardioid monorepo for MCP server and Electron recorder",
+  "scripts": {
+    "build": "pnpm --filter=\"./packages/*\" run build",
+    "dev:mcp": "pnpm --filter=mcp-server dev",
+    "dev:electron": "pnpm --filter=electron-recorder dev",
+    "start:mcp": "pnpm --filter=mcp-server start",
+    "lint": "pnpm --filter=\"./packages/*\" run lint",
+    "test": "pnpm --filter=\"./packages/*\" run test"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "pnpm": "^8.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "pnpm": ">=8.0.0"
+  }
+}

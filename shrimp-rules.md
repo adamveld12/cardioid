@@ -201,5 +201,11 @@
 - **NEVER** overwrite existing recording files; append a suffix or use a unique name if a file with the target name exists.
 - **NEVER** implement audio compression or format conversion beyond saving as `.wav`.
 
+## 10. Development Workflow Principles
+
+- **MUST** ensure the project is in a runnable state after each development iteration. This means all packages should build successfully and the primary application (MCP server) should be startable, even if some features are stubbed or incomplete.
+- **MUST** prioritize keeping the main branch stable and deployable.
+- **MUST** write tests for new features and bug fixes.
+
 ---
 *This `shrimp-rules.md` file will be updated as development progresses and new decisions are made.*

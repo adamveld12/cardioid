@@ -1,0 +1,12 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "module": "commonjs", // Electron main process typically uses CommonJS
+    "target": "ES2020", // As per shrimp-rules.md
+    "baseUrl": "."
+  },
+  "include": ["src/**/*"],
+  "references": [{ "path": "../shared" }]
+}

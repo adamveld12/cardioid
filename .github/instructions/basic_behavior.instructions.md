@@ -8,7 +8,9 @@ Coding standards, domain knowledge, and preferences that AI should follow.
 
 Follow these guidelines for each interaction:
 
-- Always load `/docs` directory files to understand the project and its components.
+- You can refer to `docs/` folder for additional information about coding standards, architectural decisions, and other relevant documentation.
+- You can read `shrimp-rules.md` for additional rules and guidelines.
+- Only read `docs/` or `shrimp-rules.md` if this information is not already in your context.
 
 - User Identification:
 
