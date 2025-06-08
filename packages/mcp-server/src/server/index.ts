@@ -5,6 +5,7 @@ import {
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 import { tools, handleToolCall } from "../tools";
+import { ElectronBridge } from "../electron-bridge"; // Added import
 
 /**
  * MCP Server implementation for the Cardioid audio recording application
@@ -13,10 +14,14 @@ export class McpServer {
   private server: Server;
   private transport: StdioServerTransport;
   private isRunning = false;
+  private electronBridge: ElectronBridge; // Added instance variable
 
   constructor() {
     // Create STDIO transport
     this.transport = new StdioServerTransport();
+
+    // Initialize ElectronBridge
+    this.electronBridge = ElectronBridge.getInstance(); // Initialize ElectronBridge
 
     // Create MCP server
     this.server = new Server(
@@ -71,6 +76,7 @@ export class McpServer {
     try {
       await this.server.close();
       this.isRunning = false;
+      this.electronBridge.dispose(); // Dispose ElectronBridge
     } catch (error) {
       console.error("Failed to stop MCP server:", error);
       throw error;

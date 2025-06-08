@@ -1,5 +1,6 @@
 import { Tool, CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { McpError, ErrorCode } from "@modelcontextprotocol/sdk/types.js";
+import { ElectronBridge } from "../electron-bridge"; // Added import
 
 /**
  * Tool definitions for MCP server
@@ -75,20 +76,49 @@ export async function handleToolCall(
   name: string,
   arguments_: unknown
 ): Promise<CallToolResult> {
+  const electronBridge = ElectronBridge.getInstance(); // Get ElectronBridge instance
   try {
     switch (name) {
       case "startRecording":
-        return await handleStartRecording(
+        // return await handleStartRecording(
+        //   arguments_ as { application?: string }
+        // );
+        const startResult = await electronBridge.startRecording(
           arguments_ as { application?: string }
         );
+        return {
+          content: [{ type: "text", text: JSON.stringify(startResult) }],
+        };
       case "stopRecording":
-        return await handleStopRecording(
+        // return await handleStopRecording(
+        //   arguments_ as { filename?: string; outputDirectory?: string }
+        // );
+        const stopResult = await electronBridge.stopRecording(
           arguments_ as { filename?: string; outputDirectory?: string }
         );
+        return {
+          content: [{ type: "text", text: JSON.stringify(stopResult) }],
+        };
       case "getStatus":
-        return await handleGetStatus();
+        // return await handleGetStatus();
+        // Assuming getAudioDevices is a proxy for a general status for now
+        const statusResult = await electronBridge.getAudioDevices();
+        return {
+          content: [
+            { type: "text", text: `Status: ${JSON.stringify(statusResult)}` },
+          ],
+        };
       case "checkMeeting":
-        return await handleCheckMeeting();
+        // return await handleCheckMeeting();
+        // No direct equivalent in ElectronBridge yet, returning a placeholder
+        return {
+          content: [
+            {
+              type: "text",
+              text: "checkMeeting is not yet implemented with ElectronBridge.",
+            },
+          ],
+        };
       default:
         throw new McpError(ErrorCode.MethodNotFound, `Unknown tool: ${name}`);
     }
@@ -103,63 +133,4 @@ export async function handleToolCall(
       }`
     );
   }
-}
-
-async function handleStartRecording(args: {
-  application?: string;
-}): Promise<CallToolResult> {
-  // STUB: Return mock response for starting recording
-  const application = args.application || "System";
-
-  return {
-    content: [
-      {
-        type: "text",
-        text: `✅ Recording started for ${application}. This is a stub implementation - no actual recording is taking place yet.`,
-      },
-    ],
-  };
-}
-
-async function handleStopRecording(args: {
-  filename?: string;
-  outputDirectory?: string;
-}): Promise<CallToolResult> {
-  // STUB: Return mock response for stopping recording
-  const filename = args.filename || "recording";
-  const outputDir = args.outputDirectory || "/tmp";
-  const mockPath = `${outputDir}/${filename}.wav`;
-
-  return {
-    content: [
-      {
-        type: "text",
-        text: `✅ Recording stopped and saved to ${mockPath}. This is a stub implementation - no actual file was created.`,
-      },
-    ],
-  };
-}
-
-async function handleGetStatus(): Promise<CallToolResult> {
-  // STUB: Return mock status response
-  return {
-    content: [
-      {
-        type: "text",
-        text: "Status: IDLE - No recording in progress. This is a stub implementation.",
-      },
-    ],
-  };
-}
-
-async function handleCheckMeeting(): Promise<CallToolResult> {
-  // STUB: Return mock meeting check response
-  return {
-    content: [
-      {
-        type: "text",
-        text: "❌ No active meeting found. This is a stub implementation - no actual meeting detection is implemented yet.",
-      },
-    ],
-  };
 }

@@ -1,0 +1,29 @@
+{
+  "name": "@vdhsn/cardioid-audio-engine",
+  "version": "0.0.1",
+  "private": true,
+  "main": "dist/main.js",
+  "scripts": {
+    "start": "electron dist/main.js",
+    "build": "esbuild --bundle --platform=node --tree-shaking=true --minify --sourcemap --target=node18 --format=cjs --outdir=dist src/main.ts",
+    "type-check": "tsc --noEmit",
+    "lint": "eslint --cache . --ext .ts",
+    "lint-fix": "eslint --cache --fix . --ext .ts",
+    "test:ui": "vitest --ui",
+    "test:run": "vitest run",
+    "test": "vitest"
+  },
+  "dependencies": {
+    "electron": "^36.4.0"
+  },
+  "devDependencies": {
+    "@types/node": "^18.0.0",
+    "esbuild": "^0.25.5",
+    "eslint": "^9.28.0",
+    "typescript": "^5.8.3",
+    "vitest": "^3.2.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

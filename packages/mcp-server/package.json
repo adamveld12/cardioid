@@ -1,15 +1,16 @@
 {
-  "name": "@vdhsn/cardiod-mcp-server",
-  "version": "0.0.1",
-  "private": true,
+  "name": "@vdhsn/cardioid-mcp-server",
+  "version": "0.0.2",
+  "private": false,
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin":{
-	"cardiod-mcp-server": "dist/index.js"
+	"cardioid-mcp-server": "dist/index.js"
   },
   "scripts": {
     "build": "esbuild --bundle --platform=node --tree-shaking=true --minify --sourcemap --target=node18 --format=cjs --outdir=dist src/index.ts",
     "pack": "pnpm pack --pack-destination .bin --json",
+	"publish":"pnpm publish --no-git-checks --access=public",
 	"prepublishOnly": "pnpm run build",
     "lint": "eslint --cache . --ext .ts",
     "lint-fix": "eslint --cache --fix . --ext .ts",
@@ -21,14 +22,15 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.1",
-    "esbuild": "^0.25.5"
+    "@vdhsn/cardioid-audio-engine": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^18.0.0",
     "@vitest/ui": "^1.0.0",
     "eslint": "^9.28.0",
     "typescript": "^5.8.3",
-    "vitest": "^3.2.2"
+    "vitest": "^3.2.2",
+    "esbuild": "^0.25.5"
   },
   "engines": {
     "node": ">=18.0.0"
