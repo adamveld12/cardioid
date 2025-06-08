@@ -72,20 +72,32 @@ MCP Server → ElectronBridge.sendCommand() → IPC Message → Electron Main Pr
 - Filename patterns: Custom names or `Cardioid-Recording-YYYY-MM-DD-HHMMSS.wav`
 - File permissions: `user=rw, group=r`
 
-### ADR-005: Meeting Detection Strategy - Process-Based Detection
+### ADR-005: Meeting Detection Strategy - Enhanced Process-Based Detection
 
-**Decision:** Detect Zoom meetings by monitoring running processes rather than API integration
+**Decision:** Detect Zoom meetings using a hybrid approach combining process monitoring with UDP connection analysis for precise meeting state detection
 
 **Rationale:**
 - **Simplicity**: No OAuth or API key management required
 - **Reliability**: Works across all Zoom versions and configurations
 - **Privacy**: No external API calls or data sharing
-- **Performance**: Lightweight process monitoring vs. continuous API polling
+- **Performance**: Lightweight monitoring vs. continuous API polling
+- **Precision**: UDP connection monitoring distinguishes between "Zoom running" vs. "actively in meeting"
+- **Efficiency**: Only record when truly necessary, saving system resources
 
 **Implementation:**
-- Monitor for Zoom process existence
-- Validate audio device access when recording starts
-- Fail gracefully with clear error messages
+- **Primary Detection**: Monitor for Zoom process existence
+- **Enhanced State Detection**: Track UDP connection count for active meeting determination
+  - Establish baseline: Monitor UDP connections when Zoom is idle (typically few connections)
+  - Meeting Detection: Detect elevated UDP connection count indicating active meeting
+  - Threshold-based Logic: Use connection count above baseline to determine meeting state
+- **Automatic Control**: Enable automatic recording start/stop based on meeting state transitions
+- **Graceful Handling**: Validate audio device access when recording starts and fail gracefully with clear error messages
+
+**Benefits:**
+- Prevents unnecessary recording when Zoom is open but not in meeting
+- Enables automatic recording lifecycle management
+- Maintains resource efficiency aligned with <5% CPU usage requirement
+- Provides granular meeting state awareness for better user experience
 
 ### ADR-006: Concurrency Model - Single Recording Session
 
@@ -112,8 +124,15 @@ MCP Server → ElectronBridge.sendCommand() → IPC Message → Electron Main Pr
 - **Deployment**: Works seamlessly with containers and CI/CD
 
 **Configuration Options:**
-- `CARDIOID_OUTPUT_DIRECTORY`: Recording save location
-- `CARDIOID_LOG_LEVEL`: Logging verbosity
+- **`CARDIOID_OUTPUT_DIRECTORY`**
+  - **Purpose:** Specifies the directory where recorded audio files will be saved.
+  - **Default:** `~/.cardioid_recordings`
+
+- **`CARDIOID_LOG_LEVEL`**
+  - **Purpose:** Controls the verbosity of application logging.
+  - **Options:** `debug`, `info`, `warn`, `error`
+  - **Default:** `info`
+
 - All optional with working defaults
 
 ### ADR-008: Error Handling Strategy - Fail Fast with Clear Messages
@@ -169,7 +188,7 @@ MCP Server → ElectronBridge.sendCommand() → IPC Message → Electron Main Pr
 | Architecture | Dual Process (Node.js + Electron) | Single Process | Separation of concerns, security |
 | Communication | JSON-RPC over IPC | REST API, WebSockets | Simplicity, local-only operation |
 | Storage | Local filesystem | Cloud storage, Database | Security, performance, user control |
-| Meeting Detection | Process monitoring | Zoom API integration | Simplicity, privacy, reliability |
+| Meeting Detection | Enhanced process + UDP monitoring | Zoom API integration | Precision, privacy, reliability |
 | Concurrency | Single session | Multiple sessions | Resource management, user clarity |
 | Configuration | Environment variables | Config files, CLI args | 12-factor compliance, simplicity |
 | Distribution | NPM + npx | Standalone binaries | Developer familiarity, easy updates |
